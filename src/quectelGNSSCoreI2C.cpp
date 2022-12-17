@@ -43,8 +43,8 @@ static constexpr uint32_t I2C_READ_BUF_SIZE = 512;
 #if (PLATFORM_ID == PLATFORM_TRACKER)
 hal_i2c_config_t acquireWire1Buffer()
 #elif (PLATFORM_ID == PLATFORM_TRACKERM)
-hal_i2c_config_t acquireWireBuffer() 
-#endif 
+hal_i2c_config_t acquireWireBuffer()
+#endif
 {
     hal_i2c_config_t config = {
         .size = sizeof(hal_i2c_config_t),
@@ -169,12 +169,12 @@ QuecDriverStatus quectelGNSSCoreI2C::quectelDevReceive(uint8_t* pData, size_t ma
 
     uint8_t i2c_master_receive_error_counter = 0;
     I2c_Resp_FlagStatus status;
-    
+
     *pRecLength = 0;
 
     //step 1_a
     request_cmd[0] = (uint32_t)((uint32_t)(QUECTEL_I2C_SLAVE_CR_CMD << 16) | QUECTEL_I2C_SLAVE_TX_LEN_REG_OFFSET);
-    request_cmd[1] = 4; 
+    request_cmd[1] = 4;
 
     while(true) {
         delayMicroseconds(QUECTEL_TRANSACTION_DELAY_US);
@@ -267,7 +267,7 @@ QuecDriverStatus quectelGNSSCoreI2C::quectelDevTransmit(const uint8_t *pData, si
 
     //step 1_a
     request_cmd[0] = (uint32_t)((QUECTEL_I2C_SLAVE_CR_CMD << 16) | QUECTEL_I2C_SLAVE_RX_LEN_REG_OFFSET);
-    request_cmd[1] = 4; 
+    request_cmd[1] = 4;
 
     while(true) {
         delayMicroseconds(QUECTEL_TRANSACTION_DELAY_US);
@@ -312,7 +312,7 @@ QuecDriverStatus quectelGNSSCoreI2C::quectelDevTransmit(const uint8_t *pData, si
 
     //step 2_a
     request_cmd[0] = (uint32_t)(QUECTEL_I2C_SLAVE_CW_CMD << 16) | QUECTEL_I2C_SLAVE_RX_BUF_REG_OFFSET;
-    request_cmd[1] = nsend;  
+    request_cmd[1] = nsend;
     i2c_master_receive_error_counter = 0;
     while(true) {
         delayMicroseconds(QUECTEL_TRANSACTION_DELAY_US);
@@ -333,7 +333,7 @@ QuecDriverStatus quectelGNSSCoreI2C::quectelDevTransmit(const uint8_t *pData, si
         status = i2cMasterTransmit(QUECTEL_I2C_SLAVE_ADDRESS_W, pData, nsend);
         if(status == I2C_ACK) {
             *pSentLength = nsend;
-            total_sent +=  nsend; 
+            total_sent +=  nsend;
             if (total_sent == 4096) {
                 //i2c_local_log.trace("wrapping total_sent!");
                 total_sent = 0;

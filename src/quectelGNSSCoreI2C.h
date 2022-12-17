@@ -38,7 +38,7 @@ public:
 
 
     /**
-     * @brief Receive GNSS data 
+     * @brief Receive GNSS data
      *
      * @param pData (out) pointer to buffer containing data returned by the read request
      * @param maxLenth (in) maximum buffer size for pData
@@ -56,7 +56,7 @@ public:
     QuecDriverStatus quectelDevTransmit(const uint8_t *pData, size_t dataLength, size_t* pSentLength);
 
     /**
-     * 
+     *
      * @return true If the device can be seen on the i2c bus
      */
     bool waitGNSSOnline();
@@ -75,7 +75,7 @@ private:
      * @param pBuff (out) Buffer for returning received bytes
      * @param reqLen (in) number of bytes to request from the module
      * @param pReadLen (out) Actual number of bytes read
-     * 
+     *
      * @return Error if data could not be received. Note that partial data may be returned
      */
     I2c_Resp_FlagStatus i2cMasterReceive(uint8_t addr, uint8_t* pBuff, size_t reqLen, size_t* pReadLen);
@@ -86,7 +86,7 @@ private:
      * @param addr 7-bit I2C device address
      * @param data pointer to data being sent to module
      * @param length number of bytes to send to module
-     * 
+     *
      * @return Error if the full length could not be sent
      */
     I2c_Resp_FlagStatus i2cMasterTransmit(uint8_t addr, const uint8_t* pData, size_t length);

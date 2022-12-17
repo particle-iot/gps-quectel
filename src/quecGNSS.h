@@ -18,7 +18,7 @@ enum class Dev_Resp_FlagStatus
 };
 
 
-enum class gpsLockMethod 
+enum class gpsLockMethod
 {
     Lock,
     HorizontalAccuracy,
@@ -39,7 +39,7 @@ typedef enum
     FEATURE_ENABLE
 } Feature_t;
 
-typedef enum 
+typedef enum
 {
     NMEA_SEN_NONE = 0x00,
     NMEA_SEN_GGA  = 0x01,
@@ -52,7 +52,7 @@ typedef enum
     NMEA_SEN_ALL  = (NMEA_SEN_GGA | NMEA_SEN_GLL | NMEA_SEN_GSA | NMEA_SEN_GSV | NMEA_SEN_RMC | NMEA_SEN_VTG)
 } NMEA_Sentence_t;
 
-enum class gpsLedStatus 
+enum class gpsLedStatus
 {
     GPS_STATUS_OFF,
     GPS_STATUS_FIXING,
@@ -67,7 +67,7 @@ enum class gpsSpeedUnit
     GPS_SPEED_UNIT_KMPH     // km/h
 };
 
-typedef enum 
+typedef enum
 {
     RATE_1HZ,
     RATE_10HZ
@@ -89,9 +89,9 @@ public:
     quectelGPS(TwoWire& bus, uint16_t powerPin, uint16_t wakeupPin);
 
     /**
-     * @brief Enables or disables power to GNSS module 
+     * @brief Enables or disables power to GNSS module
      *
-     * @param none 
+     * @param none
      */
     Dev_Resp_FlagStatus quectelDevInit(bool reInit = false);
 
@@ -141,7 +141,7 @@ public:
     Dev_Resp_FlagStatus quectelModulePower(bool state);
 
     /**
-     * @brief Enter low-power mode. 
+     * @brief Enter low-power mode.
      *        NOTE: The only way to wake up the
      *        module is to use the quectelWakeup() API
      *
@@ -152,7 +152,7 @@ public:
      * @brief Wakeup from low-power mode
      *
      */
-    Dev_Resp_FlagStatus quectelWakeup();    
+    Dev_Resp_FlagStatus quectelWakeup();
 
     /**
      * @brief Perform a module restart
@@ -386,7 +386,7 @@ private:
 
     quectelGNSSCoreI2C*      _i2cDriver;
     // Functions
-  
+
 
     /**
      * @brief Calcuation of NMEA protocol checksum

@@ -78,7 +78,7 @@ static void nmeaDisplay(gps_t* gh, gps_statement_t res)
 /************** CONSTRUCTOR ***********************/
 quectelGPS::quectelGPS(TwoWire& bus, uint16_t powerPin, uint16_t wakeupPin) :
         _powerPin(powerPin),
-        _wakeupPin(wakeupPin), 
+        _wakeupPin(wakeupPin),
         _lastLockTime(0),
         _startLockUptime(0),
         _isStable(false),
@@ -87,7 +87,7 @@ quectelGPS::quectelGPS(TwoWire& bus, uint16_t powerPin, uint16_t wakeupPin) :
         _gpsParser({0}),
         _lockMethod(gpsLockMethod::HorizontalDop),
         _i2cDriver(new quectelGNSSCoreI2C(bus))
-{ 
+{
     // Clear the NMEA filter list
     _filterList = NMEA_SEN_NONE;
 
@@ -102,12 +102,12 @@ uint8_t quectelGPS::calculateChecksum(uint8_t *pData)
     uint8_t *n = pData + 1; // Plus one, skip '$'
     uint8_t chk = 0;
 
-    // While current char isn't '*' or sentence ending (newline) 
-    while ('*' != *n && NMEA_END_CHAR_1 != *n) 
+    // While current char isn't '*' or sentence ending (newline)
+    while ('*' != *n && NMEA_END_CHAR_1 != *n)
     {
         if ( ('\0' == *n) || (n - pData > NMEA_MAX_LENGTH) )
         {
-            // Sentence too long or short 
+            // Sentence too long or short
             return 0;
         }
 
@@ -144,7 +144,7 @@ void quectelGPS::sendCommand(const char* cmd, uint32_t len)
                 }
                 else {
                     // This retry works around a problem where the LC29H reports a receive
-                    // buffer available size that doesn't reflect its actual data consumption. 
+                    // buffer available size that doesn't reflect its actual data consumption.
                     qgnss_local_log.trace("xmit continue: %u / %lu", total_sent, len);
                 }
             }
@@ -243,11 +243,11 @@ void quectelGPS::processLockStability()
         _startLockUptime = System.uptime();
     }
 
-    if (gpsLockMethod::HorizontalDop == _lockMethod) 
+    if (gpsLockMethod::HorizontalDop == _lockMethod)
     {
         _isStable = (getHDOP() < _hdopStability);
-    } 
-    else 
+    }
+    else
     {
         _isStable = true;
     }
@@ -261,10 +261,10 @@ Dev_Resp_FlagStatus quectelGPS::quectelDevInit(bool reInit)
 #if (PLATFORM_ID == PLATFORM_TRACKERM)
     pinMode(IO_2V8_EN, OUTPUT);
     digitalWrite(IO_2V8_EN, HIGH);
-#endif 
+#endif
 
     // Configure the module power enable
-	pinMode(_powerPin, OUTPUT);
+    pinMode(_powerPin, OUTPUT);
     pinMode(_wakeupPin, OUTPUT);
 
     // Turn on module
@@ -285,7 +285,7 @@ Dev_Resp_FlagStatus quectelGPS::quectelDevInit(bool reInit)
     _initializing = true;
     _enableDiag = false;
     _gpsStatus = gpsLedStatus::GPS_STATUS_FIXING;
- 
+
     // After startup of the module, it will be unresponsive
     // Wait for a finite period before allowing additional commands.
     delayMicroseconds(QUECTEL_STARTUP_WAIT_US);
@@ -294,7 +294,7 @@ Dev_Resp_FlagStatus quectelGPS::quectelDevInit(bool reInit)
     gps_init(&_gpsParser, getTstamp);
 
     _lastReceiveTime = 0;
-        
+
     if (nullptr != _i2cDriver) {
         _i2cDriver->waitGNSSOnline();
         if (! _i2cDriver->waitGNSSOnline()) {
@@ -307,7 +307,7 @@ Dev_Resp_FlagStatus quectelGPS::quectelDevInit(bool reInit)
     if (!reInit) {
         _gpsThread = new Thread("gps", [this]() { updateGPS(); }, OS_THREAD_PRIORITY_DEFAULT);
     }
-    
+
     _initializing = false;
 
     // Enable proprietary message reporting
@@ -348,7 +348,7 @@ Dev_Resp_FlagStatus quectelGPS::quectelDevInit(bool reInit)
     // Set the NMEA types to stream
     quectelSetFilters( NMEA_SEN_ALL );
 
-    return Dev_Resp_FlagStatus::DEV_REP_SUCCESS; 
+    return Dev_Resp_FlagStatus::DEV_REP_SUCCESS;
 }
 
 Dev_Resp_FlagStatus quectelGPS::quectelStart(void)
@@ -367,7 +367,7 @@ Dev_Resp_FlagStatus quectelGPS::quectelStop(void)
     _running = false;
 
     // Disable reading of all the NMEA sentence types
-    char *disableList[6] = 
+    char *disableList[6] =
                                 {
                                     (char *)"$PAIR062,0,0*3E\r\n", // Disable NMEA_SEN_GGA
                                     (char *)"$PAIR062,1,0*3F\r\n", // Disable NMEA_SEN_GLL
@@ -375,7 +375,7 @@ Dev_Resp_FlagStatus quectelGPS::quectelStop(void)
                                     (char *)"$PAIR062,3,0*3D\r\n", // Disable NMEA_SEN_GSV
                                     (char *)"$PAIR062,4,0*3A\r\n", // Disable NMEA_SEN_RMC
                                     (char *)"$PAIR062,5,0*3B\r\n"  // Disable NMEA_SEN_VTG
-                                }; 
+                                };
 
     for(uint32_t ii = 0; ii < 6; ii++)
     {
@@ -400,7 +400,7 @@ Dev_Resp_FlagStatus quectelGPS::quectelSetFilters(uint8_t nmeaTypes)
     _filterList = nmeaTypes;
 
     // Keep a map of the NMEA types
-    enum 
+    enum
     {
         IDX_GGA,
         IDX_GLL,
@@ -412,7 +412,7 @@ Dev_Resp_FlagStatus quectelGPS::quectelSetFilters(uint8_t nmeaTypes)
     };
 
     // List of commands to read the various NMEA sentence types
-    char *enableList[IDX_MAX] = 
+    char *enableList[IDX_MAX] =
                                 {
                                     (char *)"$PAIR062,0,1*3F\r\n", // Enable NMEA_SEN_GGA
                                     (char *)"$PAIR062,1,1*3E\r\n", // Enable NMEA_SEN_GLL
@@ -420,10 +420,10 @@ Dev_Resp_FlagStatus quectelGPS::quectelSetFilters(uint8_t nmeaTypes)
                                     (char *)"$PAIR062,3,1*3C\r\n", // Enable NMEA_SEN_GSV
                                     (char *)"$PAIR062,4,1*3B\r\n", // Enable NMEA_SEN_RMC
                                     (char *)"$PAIR062,5,1*3A\r\n"  // Enable NMEA_SEN_VTG
-                                }; 
+                                };
 
     // List of commands to disable reading of the various NMEA sentence types
-    char *disableList[IDX_MAX] = 
+    char *disableList[IDX_MAX] =
                                 {
                                     (char *)"$PAIR062,0,0*3E\r\n", // Disable NMEA_SEN_GGA
                                     (char *)"$PAIR062,1,0*3F\r\n", // Disable NMEA_SEN_GLL
@@ -431,9 +431,9 @@ Dev_Resp_FlagStatus quectelGPS::quectelSetFilters(uint8_t nmeaTypes)
                                     (char *)"$PAIR062,3,0*3D\r\n", // Disable NMEA_SEN_GSV
                                     (char *)"$PAIR062,4,0*3A\r\n", // Disable NMEA_SEN_RMC
                                     (char *)"$PAIR062,5,0*3B\r\n"  // Disable NMEA_SEN_VTG
-                                }; 
+                                };
 
-    // Set NMEA filters in the GNSS module	
+    // Set NMEA filters in the GNSS module
     for( uint32_t ii = 0; ii < IDX_MAX; ii++ )
     {
         switch(ii)
@@ -598,7 +598,7 @@ Dev_Resp_FlagStatus quectelGPS::quectelLowPower()
 
     // Send the command
     sendCommand( cmd, strlen(cmd));
-   
+
     return Dev_Resp_FlagStatus::DEV_REP_SUCCESS;
 }
 
@@ -658,7 +658,7 @@ Dev_Resp_FlagStatus quectelGPS::quectelSaveLocationData()
 
     // Send the command
     sendCommand( cmd, strlen(cmd));
-   
+
     return Dev_Resp_FlagStatus::DEV_REP_SUCCESS;
 }
 
@@ -868,7 +868,7 @@ void quectelGPS::unlock(void)
 
 bool quectelGPS::isActive(void)
 {
-    switch (_gpsStatus) 
+    switch (_gpsStatus)
     {
         case gpsLedStatus::GPS_STATUS_OFF:
         case gpsLedStatus::GPS_STATUS_ERROR:
@@ -942,6 +942,6 @@ void quectelGPS::writeBytes(const char *buf, uint16_t len)
     // Send the command and get the response
     sendCommand( buf, len );
 
-    // Re-enable polling 
+    // Re-enable polling
     _running = was_running;
 }
