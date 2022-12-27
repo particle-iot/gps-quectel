@@ -105,7 +105,7 @@ uint8_t quectelGPS::calculateChecksum(uint8_t *pData)
     // While current char isn't '*' or sentence ending (newline)
     while ('*' != *n && NMEA_END_CHAR_1 != *n)
     {
-        if ( ('\0' == *n) || (n - pData > NMEA_MAX_LENGTH) )
+        if ( ('\0' == *n) || ((uint32_t)(n - pData) > NMEA_MAX_LENGTH) )
         {
             // Sentence too long or short
             return 0;
