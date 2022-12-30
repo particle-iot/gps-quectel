@@ -363,6 +363,11 @@ public:
      */
     bool isOn(void);
 
+    /**
+     * @brief Return Gps Parser
+     *
+     */
+    gps_t *getParser(){ return &_gpsParser;}
 private:
     // Variables
     uint16_t        _powerPin;
