@@ -7,6 +7,7 @@
 #define QUECTEL_CMD_WAIT_US                 (10000)
 #define QUECTEL_RESET_WAIT_US               (1000000)
 #define QUECTEL_STARTUP_WAIT_US             (QUECTEL_CMD_WAIT_US * 50)
+#define MIN(x,y)                            ((x < y) ? x : y)
 
 #define LOG_DEVICE                          (Serial1)
 
@@ -105,7 +106,7 @@ uint8_t quectelGPS::calculateChecksum(uint8_t *pData)
     // While current char isn't '*' or sentence ending (newline)
     while ('*' != *n && NMEA_END_CHAR_1 != *n)
     {
-        if ( ('\0' == *n) || (n - pData > NMEA_MAX_LENGTH) )
+        if ( ('\0' == *n) || ((uint32_t)(n - pData) > NMEA_MAX_LENGTH) )
         {
             // Sentence too long or short
             return 0;
@@ -167,8 +168,47 @@ void quectelGPS::updateGPS(void)
             while (true)  {
                 // only lock ownership with the gnss receiver for the minimum time required
                 LOCK();
-
                 static int readFailures = 0;
+#if 1
+                uint32_t readSize = _i2cDriver->avaiable_for_read();
+                if (readSize != 0)
+                {
+                    readSize = MIN(sizeof(_msgBuf),readSize);
+                    if (_i2cDriver->read_data(_msgBuf,readSize) == true)
+                    {
+                        readFailures = 0;
+#if 0                     
+                        if (Serial.isConnected())
+                        {
+                            Serial.write(_msgBuf,readSize);
+                        }                  
+#endif                              
+                        processGpsBytes(_msgBuf, readSize);
+                    }
+                    else
+                    {
+                        readFailures++;
+                        if (readFailures == MAX_GPS_READ_FAILURE_HARD_RESET) {
+                            Log.warn("Failed to read NMEA data %d times, hard resetting", readFailures);
+                            // Power cycle module
+                            digitalWrite(_powerPin, LOW);
+                            delayMicroseconds(QUECTEL_RESET_WAIT_US);
+                            digitalWrite(_powerPin, HIGH);
+                            quectelDevInit(true);
+                            readFailures = 0;
+                        } else if (readFailures == MAX_GPS_READ_FAILURE_SOFT_RESET) {
+                            Log.warn("Failed to read NMEA data %d times, soft resetting", readFailures);
+                            quectelResetGnss();
+                            quectelDevInit(true);
+                        }
+                    }
+                }
+                else
+                {
+                    break;
+                }
+#else
+
                 size_t bytesReceived = 0;
                 memset(_msgBuf, 0, sizeof(_msgBuf));
                 auto rc = _i2cDriver->quectelDevReceive(_msgBuf, sizeof(_msgBuf), &bytesReceived);
@@ -183,7 +223,8 @@ void quectelGPS::updateGPS(void)
                         // No data to read from module
                         break;
                     }
-                } else if (QuecDriverStatus::QDEV_ERROR == rc) {
+                } 
+                else if (QuecDriverStatus::QDEV_ERROR == rc) {
                     readFailures++;
                     if (readFailures == MAX_GPS_READ_FAILURE_HARD_RESET) {
                         Log.warn("Failed to read NMEA data %d times, hard resetting", readFailures);
@@ -199,6 +240,7 @@ void quectelGPS::updateGPS(void)
                         quectelDevInit(true);
                     }
                 }
+#endif                
             }
             _msgDone = false;
         }
@@ -295,6 +337,7 @@ Dev_Resp_FlagStatus quectelGPS::quectelDevInit(bool reInit)
 
     _lastReceiveTime = 0;
 
+#if 0
     if (nullptr != _i2cDriver) {
         _i2cDriver->waitGNSSOnline();
         if (! _i2cDriver->waitGNSSOnline()) {
@@ -302,6 +345,7 @@ Dev_Resp_FlagStatus quectelGPS::quectelDevInit(bool reInit)
             return Dev_Resp_FlagStatus::DEV_REP_ERROR;
         }
     }
+#endif
 
     // Start the data collection thread
     if (!reInit) {
@@ -944,4 +988,5 @@ void quectelGPS::writeBytes(const char *buf, uint16_t len)
 
     // Re-enable polling
     _running = was_running;
+    Log.info("### writeBytes _running == %d ###",_running);
 }

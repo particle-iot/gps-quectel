@@ -387,7 +387,7 @@ private:
     gps_t           _gpsParser;
     gpsLockMethod   _lockMethod;
     Thread*         _gpsThread;
-    uint8_t         _msgBuf[512]; //TODO this size is based on i2c performance at 400 kHz
+    uint8_t         _msgBuf[256]; //TODO this size is based on i2c performance at 400 kHz
 
     quectelGNSSCoreI2C*      _i2cDriver;
     // Functions

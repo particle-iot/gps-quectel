@@ -4,27 +4,8 @@
 #include "quectelGNSSCoreI2C.h"
 
 /************** DEFINES ****************************/
-#define QUECTEL_I2C_SLAVE_CR_CMD            0xaa51
-#define QUECTEL_I2C_SLAVE_CW_CMD            0xaa53
-
-#define QUECTEL_I2C_SLAVE_CMD_LEN           8
-#define QUECTEL_I2C_INIT_CMD_LEN            4
-#define QUECTEL_I2C_CMD_RESP_LEN           4
-#define QUECTEL_I2C_SLAVE_TX_LEN_REG_OFFSET 0x08
-#define QUECTEL_I2C_SLAVE_TX_BUF_REG_OFFSET 0x2000
-
-#define QUECTEL_I2C_SLAVE_RX_LEN_REG_OFFSET 0x04
-#define QUECTEL_I2C_SLAVE_RX_BUF_REG_OFFSET 0x1000
-
-#define QUECTEL_I2C_SLAVE_ADDRESS_CR_OR_CW  0x50
-#define QUECTEL_I2C_SLAVE_ADDRESS_R         0x54
-#define QUECTEL_I2C_SLAVE_ADDRESS_W         0x58
-
-#define MAX_ERROR_NUMBER                    1
-
-#define QUECTEL_TRANSACTION_DELAY_US        5000
-
 #define LOG_DEVICE                          (Serial1)
+
 
 /************** ENUMS ****************************/
 
@@ -39,7 +20,7 @@ Logger i2c_local_log("qi2c");
 // uses this function to initialize the I2C driver.
 // The Quectel GNSS driver requires read block size to be
 // a minimum of 512 bytes.
-static constexpr uint32_t I2C_READ_BUF_SIZE = 512;
+static constexpr uint32_t I2C_READ_BUF_SIZE = 256;
 #if (PLATFORM_ID == PLATFORM_TRACKER)
 hal_i2c_config_t acquireWire1Buffer()
 #elif (PLATFORM_ID == PLATFORM_TRACKERM)
@@ -59,6 +40,23 @@ hal_i2c_config_t acquireWireBuffer()
 
 
 /************** CONSTANTS ************************/
+constexpr uint32_t QUECTEL_I2C_SLAVE_CR_CMD = {0xaa51};
+constexpr uint32_t QUECTEL_I2C_SLAVE_CW_CMD = {0xaa53};
+constexpr uint32_t QUECTEL_I2C_SLAVE_CMD_LEN = {8};
+constexpr uint32_t QUECTEL_I2C_INIT_CMD_LEN = {4};
+constexpr uint32_t QUECTEL_I2C_CMD_RESP_LEN = {4};
+constexpr uint32_t QUECTEL_I2C_SLAVE_TX_LEN_REG_OFFSET = {0x08};
+constexpr uint32_t QUECTEL_I2C_SLAVE_TX_BUF_REG_OFFSET = {0x2000};
+constexpr uint32_t QUECTEL_I2C_SLAVE_RX_LEN_REG_OFFSET = {0x04};
+constexpr uint32_t QUECTEL_I2C_SLAVE_RX_BUF_REG_OFFSET = {0x1000};
+constexpr uint8_t QUECTEL_I2C_SLAVE_ADDRESS_CR_OR_CW = {0x50};
+constexpr uint32_t QUECTEL_I2C_SLAVE_ADDRESS_R = {0x54};
+constexpr uint32_t QUECTEL_I2C_SLAVE_ADDRESS_W = {0x58};
+constexpr uint32_t MAX_ERROR_NUMBER = {1};
+constexpr uint32_t QUECTEL_TRANSACTION_DELAY_US = {5000};
+constexpr uint32_t QUECTEL_I2C_REQUEST_TOTAL = {2};
+constexpr uint32_t QUECTEL_NMEA_LENGTH_SIZE = {4};
+constexpr uint32_t QUECTEL_TRANSACTION_DELAY_MS = {10};
 static constexpr uint8_t  NMEA_START_DELIMITER         = '$';
 static constexpr uint8_t  NMEA_END_CHAR_1              = '\n';
 static constexpr uint32_t NMEA_MAX_LENGTH              = 82;
@@ -382,8 +380,163 @@ bool quectelGNSSCoreI2C::waitGNSSOnline() {
     return online;
 }
 
+I2c_Resp_FlagStatus quectelGNSSCoreI2C::i2c_master_receive(uint8_t addr, uint8_t *data, uint32_t length)
+{
+    // Validate inputs
+    if( (nullptr == data) || (0 == length) ) 
+    {
+        return I2C_NACK;
+    }
+    WITH_LOCK(_i2c) // Other devices are on this bus using this same global handle
+    {
+        // Read the requested amount of data from the specified address
+        _i2c.requestFrom(addr, length);
+        for(uint32_t i = 0; i < length; i++)
+        {
+            *(data + i) = _i2c.read();
+        }
+    }
+    return I2C_ACK;
+}
 
 
+I2c_Resp_FlagStatus quectelGNSSCoreI2C::i2c_master_transmit(uint8_t addr, uint8_t *data, uint32_t length)
+{
+    // Validate inputs
+    if( (nullptr == data) || (0 == length) ) 
+    {
+        return I2C_NACK;
+    }
+    WITH_LOCK(_i2c) // Other devices are on this bus using this same global handle
+    {
+        // Write data to the specified address
+        _i2c.beginTransmission(addr);
+
+        for (uint32_t i = 0; i < length; i++)
+        {
+            _i2c.write(data[i]);
+        }        
+        _i2c.endTransmission();
+    }
+    return I2C_ACK;
+}
+
+void inline quectelGNSSCoreI2C::generate_request_packet(uint32_t *pRequests,uint8_t *pBuffer)
+{
+    for (uint32_t i = 0; i < QUECTEL_I2C_REQUEST_TOTAL; i++)
+    {
+        uint32_t temp = pRequests[i];
+        uint8_t length = 4;
+        while (length)
+        {
+            *pBuffer++ = (uint8_t)(temp & 0xFF);
+            temp >>= 8;
+            length--;
+        }
+    }    
+}
+
+
+uint32_t quectelGNSSCoreI2C::check_buffer_length(uint16_t regOffset)
+{
+    uint32_t length = 0;
+    uint8_t buffer[QUECTEL_I2C_SLAVE_CMD_LEN] = {0};
+    uint32_t requests[QUECTEL_I2C_REQUEST_TOTAL] = 
+    {
+        (uint32_t)((QUECTEL_I2C_SLAVE_CR_CMD << 16) | regOffset),
+        QUECTEL_I2C_SLAVE_RX_LEN_REG_OFFSET,
+    };
+    generate_request_packet(requests,buffer);
+    //Log.dump(buffer,QUECTEL_I2C_SLAVE_CMD_LEN);
+    //SERIAL.print("\r\n");
+    do
+    {
+        delay(QUECTEL_TRANSACTION_DELAY_MS);
+        if(I2C_NACK == i2c_master_transmit(QUECTEL_I2C_SLAVE_ADDRESS_CR_OR_CW,buffer,QUECTEL_I2C_SLAVE_CMD_LEN))
+        {
+            break;
+        }
+        delay(QUECTEL_TRANSACTION_DELAY_MS);        
+        if(I2C_NACK == i2c_master_receive(QUECTEL_I2C_SLAVE_ADDRESS_R,buffer,QUECTEL_NMEA_LENGTH_SIZE))
+        {
+            break;
+        }
+        length = (uint32_t)(buffer[0] | (buffer[1] << 8) | (buffer[2] << 16) | (buffer[3] << 24));
+        //Log.info("%s ==> %lu",__FUNCTION__,length);
+    } while (0); 
+    return length;
+}
+
+uint32_t quectelGNSSCoreI2C::avaiable_for_read()
+{
+    return check_buffer_length(QUECTEL_I2C_SLAVE_TX_LEN_REG_OFFSET);
+}
+
+
+bool quectelGNSSCoreI2C::read_data(uint8_t *pBuffer,uint32_t length)
+{
+    uint8_t buffer[QUECTEL_I2C_SLAVE_CMD_LEN] = {0};
+    uint32_t requests[QUECTEL_I2C_REQUEST_TOTAL] = 
+    {
+        (QUECTEL_I2C_SLAVE_CR_CMD << 16) | QUECTEL_I2C_SLAVE_TX_BUF_REG_OFFSET,
+        length,
+    };
+    if (length == 0)
+    {
+        return false;
+    }
+    generate_request_packet(requests,buffer);
+    //Log.dump(buffer,QUECTEL_I2C_SLAVE_CMD_LEN);
+    //SERIAL.print("\r\n");
+
+    delay(QUECTEL_TRANSACTION_DELAY_MS);
+    if(I2C_NACK == i2c_master_transmit(QUECTEL_I2C_SLAVE_ADDRESS_CR_OR_CW,buffer,QUECTEL_I2C_SLAVE_CMD_LEN))
+    {
+        return false;
+    }
+    delay(QUECTEL_TRANSACTION_DELAY_MS);
+    //Log.info("**** %s ==> %lu **** ",__FUNCTION__,length);
+    if(I2C_NACK == i2c_master_receive(QUECTEL_I2C_SLAVE_ADDRESS_R,pBuffer,length))
+    {
+        return false;
+    }
+    return true;
+}
+
+uint32_t quectelGNSSCoreI2C::avaiable_for_write()
+{
+    return check_buffer_length(QUECTEL_I2C_SLAVE_RX_LEN_REG_OFFSET);
+}
+
+bool quectelGNSSCoreI2C::write_data(uint8_t *pBuffer,uint32_t length)
+{
+    uint8_t buffer[QUECTEL_I2C_SLAVE_CMD_LEN] = {0};
+    uint32_t requests[QUECTEL_I2C_REQUEST_TOTAL] = 
+    {
+        (QUECTEL_I2C_SLAVE_CW_CMD << 16) | QUECTEL_I2C_SLAVE_RX_BUF_REG_OFFSET,
+        length,
+    };
+    if (length == 0)
+    {
+        return false;
+    }
+    generate_request_packet(requests,buffer);
+    //Log.dump(buffer,QUECTEL_I2C_SLAVE_CMD_LEN);
+    //SERIAL.print("\r\n");
+
+    delay(QUECTEL_TRANSACTION_DELAY_MS);
+    if(I2C_NACK == i2c_master_transmit(QUECTEL_I2C_SLAVE_ADDRESS_CR_OR_CW,buffer,QUECTEL_I2C_SLAVE_CMD_LEN))
+    {
+        return false;
+    }
+    delay(QUECTEL_TRANSACTION_DELAY_MS);
+    //Log.info("**** %s [ %s ] ==> %lu **** ",__FUNCTION__,pBuffer,length);
+    if(I2C_NACK == i2c_master_transmit(QUECTEL_I2C_SLAVE_ADDRESS_W,pBuffer,length))
+    {
+        return false;
+    }
+    return true;
+}
 
 
 
