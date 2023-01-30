@@ -70,7 +70,8 @@ static void nmeaDisplay(gps_t* gh, gps_statement_t res)
 {
     if(res != STAT_CHECKSUM_FAIL)
     {
-        Log.trace("%.*s", gh->sentence_len, gh->sentence);
+        //Log.trace("%.*s", gh->sentence_len, gh->sentence);
+        LOG_DEVICE.printf("%.*s\r\n", gh->sentence_len, gh->sentence);
     }
 }
 
@@ -283,7 +284,7 @@ Dev_Resp_FlagStatus quectelGPS::quectelDevInit(bool reInit)
     // Flag the device as ready for commands
     _initialized = true;
     _initializing = true;
-    _enableDiag = false;
+    _enableDiag = true;
     _gpsStatus = gpsLedStatus::GPS_STATUS_FIXING;
 
     // After startup of the module, it will be unresponsive
